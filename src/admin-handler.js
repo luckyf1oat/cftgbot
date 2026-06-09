@@ -812,12 +812,8 @@ async function handleLoginAPI(request, kv) {
 
 async function handleGetBots(kv) {
   const bots = await kv.getAllBots();
-  // 返回时隐藏完整的 token（前端不需要完整 token）
-  const safeBots = bots.map(b => ({
-    ...b,
-    token: maskBotToken(b.token),
-  }));
-  return jsonResponse({ bots: safeBots });
+  // 返回完整 token，前端列表显示时自行掩码
+  return jsonResponse({ bots: bots });
 }
 
 async function handleCreateBot(request, kv, url) {
