@@ -1,0 +1,13 @@
+name = "cftgbot"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV Namespace for data storage
+[[kv_namespaces]]
+binding = "KV"
+id = "1aef1e086baf48e392b65aca0558f1d9"  # Replace with your KV namespace ID after creating it
+preview_id = "tgrqyz"
+
+# Workers variables (not secrets, will be set via dashboard API)
+[vars]
+# These are managed via the admin panel, not as env vars

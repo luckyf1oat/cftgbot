@@ -1,0 +1,13 @@
+{
+  "name": "cftgbot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram group verification bot using Cloudflare Turnstile",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
