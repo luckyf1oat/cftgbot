@@ -6,6 +6,7 @@ import KVStore from './kv.js';
 import { handleWebhookUpdate } from './webhook.js';
 import { handleVerifyRequest } from './verify-handler.js';
 import { handleAdminRequest } from './admin-handler.js';
+import { kickUser, deleteMessage } from './telegram.js';
 
 /**
  * 全局错误响应
@@ -15,6 +16,77 @@ function errorResponse(message, status) {
     status: status || 500,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * 清理过期验证（每 1 分钟执行一次）
+ */
+async function cleanupExpiredVerifications(env) {
+  var kv = new KVStore(env);
+  var pendingList = await kv.getAllPendingVerifications();
+  if (!pendingList || pendingList.length === 0) return;
+
+  var now = Date.now();
+  var VERIFY_TIMEOUT = 5 * 60 * 1000; // 5 分钟
+  var processedIds = []; // 已处理的记录 ID
+  var failedIds = [];    // 处理失败的记录 ID
+
+  for (var i = 0; i < pendingList.length; i++) {
+    var item = pendingList[i];
+    var elapsed = now - item.timestamp;
+
+    // 只处理超过 5 分钟的记录
+    if (elapsed < VERIFY_TIMEOUT) continue;
+
+    // 获取当前验证记录，检查是否已验证
+    var record = await kv.getVerification(item.botId, item.chatId, item.userId);
+    if (!record) {
+      // KV 记录已不存在（可能已过期自动删除），但还在 pending 列表中
+      // 说明该用户未验证，需要踢出
+    } else if (record.verified) {
+      // 已验证，从待处理列表中移除
+      processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+      continue;
+    }
+
+    // 获取 Bot 配置
+    var bot = await kv.getBot(item.botId);
+    if (!bot) {
+      // Bot 不存在，跳过清理
+      processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+      continue;
+    }
+
+    // 踢出未验证用户
+    try {
+      var kickResult = await kickUser(bot.token, item.chatId, item.userId);
+      if (kickResult.ok) {
+        // 删除验证消息
+        if (item.messageId) {
+          try {
+            await deleteMessage(bot.token, item.chatId, item.messageId);
+          } catch (e) {
+            // 忽略删除消息失败
+          }
+        }
+        // 删除验证记录
+        await kv.deleteVerification(item.botId, item.chatId, item.userId);
+        processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+      } else {
+        // 踢出失败，可能用户已经离开或其他原因，仍然从待处理列表移除
+        await kv.deleteVerification(item.botId, item.chatId, item.userId);
+        processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+      }
+    } catch (err) {
+      console.error('Error kicking expired user:', err.message);
+      failedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+    }
+  }
+
+  // 清理已处理的记录
+  if (processedIds.length > 0) {
+    await kv.removePendingVerifications(processedIds);
+  }
 }
 
 /**
@@ -73,5 +145,13 @@ export default {
       console.error('Unhandled error:', err.message, err.stack);
       return errorResponse('Internal Server Error: ' + err.message, 500);
     }
+  },
+
+  /**
+   * 定时清理过期验证（Cloudflare Cron Triggers）
+   * 每 1 分钟执行一次
+   */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanupExpiredVerifications(env));
   },
 };

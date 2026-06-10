@@ -143,6 +143,8 @@ async function handleCallbackQuery(callbackQuery, bot, botId, kv, workerUrl) {
       if (message && message.message_id) {
         await tg.deleteMessage(bot.token, chatId, message.message_id);
       }
+      // 清理待处理列表中的记录
+      await kv.deleteVerification(botId, chatId, targetUserId);
       return { ok: true };
     }
 

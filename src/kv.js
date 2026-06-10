@@ -1,53 +1,29 @@
 /**
- * KV 存储操作封装
+ * Cloudflare KV 存储封装
  */
 class KVStore {
   constructor(env) {
     this.kv = env.KV;
   }
 
-  // === 管理员相关 ===
+  // === Bot 管理 ===
 
-  async getAdminPassword() {
-    return await this.kv.get('admin:password', 'text');
-  }
-
-  async setAdminPassword(hash) {
-    await this.kv.put('admin:password', hash);
-  }
-
-  async hasAdminPassword() {
-    const pw = await this.getAdminPassword();
-    return pw !== null;
-  }
-
-  async getAdminToken() {
-    return await this.kv.get('admin:token', 'text');
-  }
-
-  async setAdminToken(token) {
-    await this.kv.put('admin:token', token, { expirationTtl: 604800 });
-  }
-
-  async validateToken(token) {
-    const stored = await this.getAdminToken();
-    return stored === token;
-  }
-
-  // === Bot 配置管理 ===
-
-  async getNextBotId() {
+  async getBotCount() {
     const countStr = await this.kv.get('bot:count', 'text');
-    const count = parseInt(countStr || '0');
-    await this.kv.put('bot:count', String(count + 1));
-    return count + 1;
+    return parseInt(countStr || '0');
+  }
+
+  async incrementBotCount() {
+    const countStr = await this.kv.get('bot:count', 'text');
+    const count = parseInt(countStr || '0') + 1;
+    await this.kv.put('bot:count', String(count));
+    return count;
   }
 
   async getAllBots() {
-    const countStr = await this.kv.get('bot:count', 'text');
-    const count = parseInt(countStr || '0');
-    const bots = [];
-    for (let i = 1; i <= count; i++) {
+    const count = await this.getBotCount();
+    var bots = [];
+    for (var i = 1; i <= count; i++) {
       const data = await this.kv.get('bot:' + i, 'text');
       if (data) {
         try {
@@ -101,6 +77,11 @@ class KVStore {
     });
     // 5 分钟 TTL，过期后 KV 自动删除
     await this.kv.put(key, data, { expirationTtl: 300 });
+
+    // 同时添加到待处理列表，用于定时清理
+    if (messageId) {
+      await this.addPendingVerification(botId, chatId, userId, messageId);
+    }
   }
 
   /**
@@ -125,6 +106,8 @@ class KVStore {
       // 更新后保留 60s 用于后续删除消息等操作
       await this.kv.put(key, JSON.stringify(record), { expirationTtl: 60 });
     }
+    // 从待处理列表中移除
+    await this.removePendingVerification(botId, chatId, userId);
   }
 
   /**
@@ -133,6 +116,86 @@ class KVStore {
   async deleteVerification(botId, chatId, userId) {
     var key = 'verify:' + botId + ':' + chatId + ':' + userId;
     await this.kv.delete(key);
+    // 从待处理列表中移除
+    await this.removePendingVerification(botId, chatId, userId);
+  }
+
+  // === 待处理验证列表（用于定时清理） ===
+
+  /**
+   * 添加待处理验证记录
+   */
+  async addPendingVerification(botId, chatId, userId, messageId) {
+    var listKey = 'verify:pending';
+    var listStr = await this.kv.get(listKey, 'text');
+    var list = [];
+    if (listStr) {
+      try { list = JSON.parse(listStr); } catch(e) {}
+    }
+    // 移除可能存在的旧记录
+    list = list.filter(function(item) {
+      return !(item.botId === botId && item.chatId === chatId && item.userId === userId);
+    });
+    list.push({
+      botId: botId,
+      chatId: chatId,
+      userId: userId,
+      messageId: messageId,
+      timestamp: Date.now(),
+    });
+    await this.kv.put(listKey, JSON.stringify(list));
+  }
+
+  /**
+   * 从待处理列表中移除
+   */
+  async removePendingVerification(botId, chatId, userId) {
+    var listKey = 'verify:pending';
+    var listStr = await this.kv.get(listKey, 'text');
+    if (!listStr) return;
+    var list = [];
+    try { list = JSON.parse(listStr); } catch(e) { return; }
+    var newList = list.filter(function(item) {
+      return !(item.botId === botId && item.chatId === chatId && item.userId === userId);
+    });
+    if (newList.length === list.length) return; // 没有变化
+    await this.kv.put(listKey, JSON.stringify(newList));
+  }
+
+  /**
+   * 获取所有待处理验证
+   */
+  async getAllPendingVerifications() {
+    var listKey = 'verify:pending';
+    var listStr = await this.kv.get(listKey, 'text');
+    if (!listStr) return [];
+    try {
+      return JSON.parse(listStr);
+    } catch(e) {
+      return [];
+    }
+  }
+
+  /**
+   * 从待处理列表中批量移除已验证/已处理的记录
+   */
+  async removePendingVerifications(ids) {
+    // ids: [{botId, chatId, userId}, ...]
+    if (!ids || ids.length === 0) return;
+    var listKey = 'verify:pending';
+    var listStr = await this.kv.get(listKey, 'text');
+    if (!listStr) return;
+    var list = [];
+    try { list = JSON.parse(listStr); } catch(e) { return; }
+    var idSet = {};
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      idSet[id.botId + ':' + id.chatId + ':' + id.userId] = true;
+    }
+    var newList = list.filter(function(item) {
+      return !idSet[item.botId + ':' + item.chatId + ':' + item.userId];
+    });
+    await this.kv.put(listKey, JSON.stringify(newList));
   }
 }
 

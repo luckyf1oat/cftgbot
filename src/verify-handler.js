@@ -253,6 +253,8 @@ export async function handleVerifyRequest(request, kv, url, waitUntil) {
     
     if (!record) {
       await tg.kickUser(bot.token, parseInt(chatId), parseInt(userId));
+      // 同时清理待处理列表
+      await kv.deleteVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
       var expiredPage = getVerifyPage(bot.site_key, bot.name, botId, chatId, userId, secret, 'expired', 
         '验证时间已过，你已被移出群组。', url.pathname);
       return new Response(expiredPage, {
@@ -278,6 +280,7 @@ export async function handleVerifyRequest(request, kv, url, waitUntil) {
   var record = await kv.getVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
   if (!record) {
     await tg.kickUser(bot.token, parseInt(chatId), parseInt(userId));
+    await kv.deleteVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
     return redirectResult2(url, botId, chatId, userId, secret, 'expired', '验证已过期');
   }
 

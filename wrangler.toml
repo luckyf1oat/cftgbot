@@ -11,3 +11,7 @@ preview_id = "tgrqyz"
 # Workers variables (not secrets, will be set via dashboard API)
 [vars]
 # These are managed via the admin panel, not as env vars
+
+# Cron trigger: every 1 minute to clean up expired verifications
+[triggers]
+crons = ["*/1 * * * *"]
