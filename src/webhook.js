@@ -46,11 +46,17 @@ export async function handleWebhookUpdate(update, bot, botId, kv, workerUrl) {
  */
 async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
   var chat = chatMember.chat;
+  var oldMember = chatMember.old_chat_member;
   var newMember = chatMember.new_chat_member;
   var chatId = chat.id;
   var userId = newMember.user.id;
 
   if (newMember.status !== 'member') {
+    return { ok: true };
+  }
+
+  // 用户之前就是 member（权限变更事件，比如禁言/解禁），忽略
+  if (oldMember && oldMember.status === 'member') {
     return { ok: true };
   }
 
