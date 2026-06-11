@@ -67,7 +67,12 @@ async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
 
   var existingRecord = await kv.getVerification(botId, chatId, userId);
   if (existingRecord) {
-    return { ok: true };
+    // 如果已有未验证的记录（用户被踢出后重新加入），删除旧记录以创建新验证
+    if (!existingRecord.verified) {
+      await kv.deleteVerification(botId, chatId, userId);
+    } else {
+      return { ok: true };
+    }
   }
 
   try {
