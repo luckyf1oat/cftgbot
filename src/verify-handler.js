@@ -195,14 +195,6 @@ function delay(ms) {
   });
 }
 
-/**
- * 后台任务：编辑消息后 10 秒删除
- */
-async function cleanupVerificationMessage(botToken, chatId, messageId) {
-  await tg.editMessageText(botToken, chatId, messageId, '你已成功通过验证！');
-  await delay(10000);
-  await tg.deleteMessage(botToken, chatId, messageId);
-}
 
 /**
  * 处理验证请求
@@ -303,8 +295,14 @@ export async function handleVerifyRequest(request, kv, url, waitUntil) {
 
   await kv.markVerified(parseInt(botId), parseInt(chatId), parseInt(userId));
 
-  if (record.message_id && waitUntil) {
-    waitUntil(cleanupVerificationMessage(bot.token, parseInt(chatId), record.message_id));
+  // 立即编辑消息并删除
+  if (record.message_id) {
+    try {
+      await tg.editMessageText(bot.token, parseInt(chatId), record.message_id, '你已成功通过验证！');
+      await tg.deleteMessage(bot.token, parseInt(chatId), record.message_id);
+    } catch (e) {
+      // 忽略删除消息失败
+    }
   }
 
   return redirectResult2(url, botId, chatId, userId, secret, 'success');

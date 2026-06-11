@@ -55,8 +55,8 @@ async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
     return { ok: true };
   }
 
-  // 用户之前就是 member（权限变更事件，比如禁言/解禁），忽略
-  if (oldMember && oldMember.status === 'member') {
+  // 用户已经在群组中（非 left/kicked 状态），说明是权限变更事件（禁言/解禁等），忽略
+  if (oldMember && oldMember.status !== 'left' && oldMember.status !== 'kicked') {
     return { ok: true };
   }
 
@@ -177,12 +177,12 @@ async function handleCallbackQuery(callbackQuery, bot, botId, kv, workerUrl) {
 
     await kv.markVerified(botId, chatId, targetUserId);
 
+    // 先编辑消息移除按钮，再删除（不需要等待 10 秒，已标记已验证）
     await tg.editMessageText(bot.token, chatId, message.message_id,
       '你已成功通过验证！'
     );
+    await tg.deleteMessage(bot.token, chatId, message.message_id);
     await tg.answerCallbackQuery(bot.token, callbackId, '验证通过！');
-
-    delayDeleteMessage(bot.token, chatId, message.message_id, 10000);
 
     return { ok: true };
   } catch (err) {
