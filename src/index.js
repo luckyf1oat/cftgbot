@@ -6,7 +6,7 @@ import KVStore from './kv.js';
 import { handleWebhookUpdate } from './webhook.js';
 import { handleVerifyRequest } from './verify-handler.js';
 import { handleAdminRequest } from './admin-handler.js';
-import { kickUser, deleteMessage } from './telegram.js';
+import { kickUser, deleteMessage, unrestrictUser } from './telegram.js';
 
 /**
  * 全局错误响应
@@ -60,23 +60,21 @@ async function cleanupExpiredVerifications(env) {
     // 踢出未验证用户
     try {
       var kickResult = await kickUser(bot.token, item.chatId, item.userId);
-      if (kickResult.ok) {
-        // 删除验证消息
-        if (item.messageId) {
-          try {
-            await deleteMessage(bot.token, item.chatId, item.messageId);
-          } catch (e) {
-            // 忽略删除消息失败
-          }
-        }
-        // 删除验证记录
-        await kv.deleteVerification(item.botId, item.chatId, item.userId);
-        processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
-      } else {
-        // 踢出失败，可能用户已经离开或其他原因，仍然从待处理列表移除
-        await kv.deleteVerification(item.botId, item.chatId, item.userId);
-        processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+      // 如果踢出失败（如 Bot 权限不足），解除禁言，避免用户卡在禁言状态
+      if (!kickResult.ok) {
+        await unrestrictUser(bot.token, item.chatId, item.userId);
       }
+      // 删除验证消息（如果有）
+      if (item.messageId) {
+        try {
+          await deleteMessage(bot.token, item.chatId, item.messageId);
+        } catch (e) {
+          // 忽略删除消息失败
+        }
+      }
+      // 删除验证记录
+      await kv.deleteVerification(item.botId, item.chatId, item.userId);
+      processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
     } catch (err) {
       console.error('Error kicking expired user:', err.message);
       failedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });

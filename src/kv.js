@@ -78,10 +78,8 @@ class KVStore {
     // 5 分钟 TTL，过期后 KV 自动删除
     await this.kv.put(key, data, { expirationTtl: 300 });
 
-    // 同时添加到待处理列表，用于定时清理
-    if (messageId) {
-      await this.addPendingVerification(botId, chatId, userId, messageId);
-    }
+    // 添加到待处理列表，用于定时清理（即使 messageId 为空，也需要跟踪以清理禁言用户）
+    await this.addPendingVerification(botId, chatId, userId, messageId);
   }
 
   /**
