@@ -59,6 +59,12 @@ async function cleanupExpiredVerifications(env) {
 
     // 踢出未验证用户
     try {
+      // Recheck immediately before kicking in case verification completed while cleanup was running.
+      var latestRecord = await kv.getVerification(item.botId, item.chatId, item.userId);
+      if (latestRecord && latestRecord.verified) {
+        processedIds.push({ botId: item.botId, chatId: item.chatId, userId: item.userId });
+        continue;
+      }
       var kickResult = await kickUser(bot.token, item.chatId, item.userId);
       // 如果踢出失败（如 Bot 权限不足），解除禁言，避免用户卡在禁言状态
       if (!kickResult.ok) {

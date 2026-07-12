@@ -66,7 +66,7 @@ function getVerifyPage(siteKey, botName, botId, chatId, userId, secret, status, 
       '<input type="hidden" name="user_id" value="' + escAttr(String(userId)) + '">' +
       '<input type="hidden" name="secret" value="' + escAttr(String(secret)) + '">' +
       '<div class="turnstile-wrap"><div id="turnstile-widget"></div></div>' +
-      '<button type="submit" class="verify-btn" id="verify-btn" disabled>验证中...</button>' +
+      '<button type="submit" class="verify-btn" id="verify-btn" disabled>等待验证</button>' +
       '</form>';
 
     extraScript =
@@ -89,83 +89,80 @@ function getVerifyPage(siteKey, botName, botId, chatId, userId, secret, status, 
     '<head>' +
     '<meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<title>验证</title>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
+    '<meta name="theme-color" content="#f4f6f8">' +
+    '<title>安全验证</title>' +
     '<style>' +
     '*{margin:0;padding:0;box-sizing:border-box}' +
     'html,body{height:100%}' +
     'body{' +
-    'font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,sans-serif;' +
-    'background:#f5f7fa;' +
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;' +
+    'background:#f4f6f8;color:#17212b;' +
     'display:flex;align-items:center;justify-content:center;' +
-    'min-height:100vh;padding:16px' +
+    'min-height:100vh;padding:24px 16px;' +
+    '-webkit-font-smoothing:antialiased' +
     '}' +
     '.card{' +
     'background:#fff;' +
-    'border-radius:20px;' +
-    'box-shadow:0 4px 24px rgba(0,0,0,0.06),0 1px 4px rgba(0,0,0,0.04);' +
-    'padding:48px 40px 40px;' +
-    'width:100%;max-width:400px;' +
+    'border:1px solid #e2e7ec;border-radius:8px;' +
+    'box-shadow:0 8px 28px rgba(23,33,43,.07);' +
+    'padding:36px 32px 30px;' +
+    'width:100%;max-width:390px;' +
     'text-align:center' +
     '}' +
     '.card .shield{' +
-    'width:56px;height:56px;' +
-    'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);' +
-    'border-radius:16px;' +
+    'width:48px;height:48px;' +
+    'background:#eaf6fc;border:1px solid #d4ecf8;' +
+    'border-radius:8px;' +
     'display:flex;align-items:center;justify-content:center;' +
-    'margin:0 auto 24px;' +
-    'padding:14px;' +
-    'box-shadow:0 8px 24px rgba(102,126,234,0.25)' +
+    'margin:0 auto 18px;padding:11px' +
     '}' +
-    '.card .shield svg{width:100%;height:100%;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
-    '.card h1{font-size:20px;font-weight:600;color:#1a1a2e;margin-bottom:6px;letter-spacing:-0.3px}' +
-    '.card .sub{font-size:14px;color:#8892a4;margin-bottom:32px;line-height:1.5}' +
+    '.card .shield svg{width:100%;height:100%;fill:none;stroke:#168acd;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
+    '.card h1{font-size:21px;font-weight:650;color:#17212b;margin-bottom:8px;letter-spacing:0}' +
+    '.card .sub{font-size:14px;color:#697782;margin-bottom:16px;line-height:1.6}' +
     '.card .bot-tag{' +
     'display:inline-block;' +
-    'padding:4px 12px;' +
-    'background:#f0f2f5;' +
-    'border-radius:20px;' +
-    'font-size:12px;color:#667eea;' +
-    'margin-bottom:28px' +
+    'max-width:100%;padding:5px 10px;' +
+    'background:#f4f6f8;border:1px solid #e5e9ed;' +
+    'border-radius:6px;font-size:12px;color:#53616d;' +
+    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+    'margin-bottom:24px' +
     '}' +
-    '.turnstile-wrap{display:flex;justify-content:center;margin-bottom:4px}' +
+    '#verify-form{border-top:1px solid #edf0f2;padding-top:24px}' +
+    '.turnstile-wrap{display:flex;justify-content:center;min-height:65px;margin-bottom:12px;overflow:hidden}' +
     '.turnstile-wrap iframe{margin:0 auto}' +
-    '.result{padding:8px 0 4px}' +
-    '.result .icon{width:56px;height:56px;margin:0 auto 16px}' +
+    '.result{border-top:1px solid #edf0f2;padding:24px 0 4px}' +
+    '.result .icon{width:48px;height:48px;margin:0 auto 14px}' +
     '.result .icon svg{width:100%;height:100%}' +
-    '.result h2{font-size:18px;font-weight:600;margin-bottom:6px;color:#1a1a2e}' +
-    '.result p{font-size:14px;color:#8892a4;line-height:1.5;margin-bottom:8px}' +
-    '.result.success h2{color:#16a34a}' +
-    '.result.error h2{color:#dc2626}' +
-    '.close-hint{font-size:12px;color:#c0c4cc}' +
+    '.result h2{font-size:18px;font-weight:650;margin-bottom:7px;color:#17212b}' +
+    '.result p{font-size:14px;color:#697782;line-height:1.6;margin:0 auto 8px;max-width:280px}' +
+    '.result.success h2{color:#168447}' +
+    '.result.error h2{color:#c93636}' +
+    '.close-hint{font-size:12px;color:#9aa5ad}' +
     '.verify-btn{' +
-    'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);' +
-    'color:#fff;border:none;' +
-    'padding:12px 24px;' +
-    'border-radius:12px;' +
-    'font-size:15px;font-weight:500;' +
-    'cursor:pointer;' +
-    'transition:all 0.2s;' +
-    'width:100%;margin-top:8px;' +
-    'letter-spacing:0.3px' +
+    'background:#168acd;color:#fff;border:1px solid #168acd;' +
+    'height:44px;padding:0 20px;border-radius:7px;' +
+    'font-size:14px;font-weight:600;cursor:pointer;' +
+    'transition:background .15s,border-color .15s,box-shadow .15s;' +
+    'width:100%;letter-spacing:0' +
     '}' +
-    '.verify-btn:hover:not(:disabled){' +
-    'transform:translateY(-1px);' +
-    'box-shadow:0 8px 20px rgba(102,126,234,0.35)' +
-    '}' +
-    '.verify-btn:active:not(:disabled){transform:translateY(0)}' +
-    '.verify-btn:disabled{opacity:0.5;cursor:not-allowed;background:linear-gradient(135deg,#a0aec0 0%,#8892a4 100%)}' +
+    '.verify-btn:hover:not(:disabled){background:#087bbb;border-color:#087bbb;box-shadow:0 3px 10px rgba(22,138,205,.18)}' +
+    '.verify-btn:active:not(:disabled){background:#076fa8}' +
+    '.verify-btn:focus-visible,.retry-btn:focus-visible{outline:3px solid rgba(22,138,205,.22);outline-offset:2px}' +
+    '.verify-btn:disabled{color:#8c98a1;background:#eef1f3;border-color:#e1e6e9;cursor:not-allowed}' +
     '.retry-btn{' +
-    'display:inline-block;' +
-    'margin-top:16px;' +
-    'padding:10px 28px;' +
-    'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);' +
-    'color:#fff;border-radius:10px;' +
-    'text-decoration:none;font-size:14px;font-weight:500;' +
-    'transition:all 0.2s' +
+    'display:inline-flex;align-items:center;justify-content:center;' +
+    'height:40px;margin-top:14px;padding:0 24px;' +
+    'background:#168acd;color:#fff;border-radius:7px;' +
+    'text-decoration:none;font-size:14px;font-weight:600;' +
+    'transition:background .15s,box-shadow .15s' +
     '}' +
-    '.retry-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(102,126,234,0.3)}' +
-    '@media(max-width:480px){.card{padding:36px 24px 28px}}' +
+    '.retry-btn:hover{background:#087bbb;box-shadow:0 3px 10px rgba(22,138,205,.18)}' +
+    '@media(max-width:380px){' +
+    'body{padding:12px}.card{padding:28px 16px 24px}' +
+    '.turnstile-wrap{width:100%;justify-content:flex-start}' +
+    '#turnstile-widget{transform:scale(.9);transform-origin:top left}' +
+    '}' +
+    '@media(prefers-reduced-motion:reduce){*{transition:none!important}}' +
     '</style>' +
     '</head>' +
     '<body>' +
@@ -244,16 +241,19 @@ export async function handleVerifyRequest(request, kv, url, waitUntil) {
     var record = await kv.getVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
     
     if (!record) {
-      var kickResult = await tg.kickUser(bot.token, parseInt(chatId), parseInt(userId));
-      // 如果踢出失败（如 Bot 权限不足），尝试解除禁言，避免用户卡在禁言状态
-      if (!kickResult.ok) {
-        await tg.unrestrictUser(bot.token, parseInt(chatId), parseInt(userId));
-      }
       // 同时清理待处理列表
       await kv.deleteVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
       var expiredPage = getVerifyPage(bot.site_key, bot.name, botId, chatId, userId, secret, 'expired', 
         '验证时间已过，你已被移出群组。', url.pathname);
       return new Response(expiredPage, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8' },
+      });
+    }
+
+    if (record.secret !== secret) {
+      var invalidPage = getVerifyPage(bot.site_key, bot.name, botId, chatId, userId, secret, 'error',
+        '验证链接无效。', url.pathname);
+      return new Response(invalidPage, {
         headers: { 'Content-Type': 'text/html;charset=utf-8' },
       });
     }
@@ -275,11 +275,6 @@ export async function handleVerifyRequest(request, kv, url, waitUntil) {
 
   var record = await kv.getVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
   if (!record) {
-    var kickResult = await tg.kickUser(bot.token, parseInt(chatId), parseInt(userId));
-    // 如果踢出失败（如 Bot 权限不足），尝试解除禁言，避免用户卡在禁言状态
-    if (!kickResult.ok) {
-      await tg.unrestrictUser(bot.token, parseInt(chatId), parseInt(userId));
-    }
     await kv.deleteVerification(parseInt(botId), parseInt(chatId), parseInt(userId));
     return redirectResult2(url, botId, chatId, userId, secret, 'expired', '验证已过期');
   }

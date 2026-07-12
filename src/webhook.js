@@ -26,6 +26,14 @@ function escapeHtml(text) {
   return s;
 }
 
+function isInChat(member) {
+  if (!member) return false;
+  if (member.status === 'member' || member.status === 'administrator' || member.status === 'creator') {
+    return true;
+  }
+  return member.status === 'restricted' && member.is_member === true;
+}
+
 /**
  * 主入口
  */
@@ -51,17 +59,13 @@ async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
   var chatId = chat.id;
   var userId = newMember.user.id;
 
-  if (newMember.status !== 'member') {
+  // Only process transitions from outside the chat to inside the chat.
+  if (!isInChat(newMember) || isInChat(oldMember)) {
     return { ok: true };
   }
 
-  // 用户已经在群组中（非 left/kicked 状态），说明是权限变更事件（禁言/解禁等），忽略
-  if (oldMember && oldMember.status !== 'left' && oldMember.status !== 'kicked') {
-    return { ok: true };
-  }
-
-  var botInfo = await tg.getMe(bot.token);
-  if (botInfo.ok && botInfo.result && botInfo.result.id === userId) {
+  // Bots cannot complete Turnstile and should not enter the verification flow.
+  if (newMember.user.is_bot) {
     return { ok: true };
   }
 
@@ -73,12 +77,8 @@ async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
 
   var existingRecord = await kv.getVerification(botId, chatId, userId);
   if (existingRecord) {
-    // 如果已有未验证的记录（用户被踢出后重新加入），删除旧记录以创建新验证
-    if (!existingRecord.verified) {
-      await kv.deleteVerification(botId, chatId, userId);
-    } else {
-      return { ok: true };
-    }
+    // Telegram may deliver the same membership transition more than once.
+    return { ok: true };
   }
 
   try {
@@ -107,16 +107,19 @@ async function handleChatMember(chatMember, bot, botId, kv, workerUrl) {
       ]]
     });
 
-    var messageId = null;
-    if (sentMsg.ok && sentMsg.result) {
-      messageId = sentMsg.result.message_id;
+    if (!sentMsg.ok || !sentMsg.result) {
+      await tg.unrestrictUser(bot.token, chatId, userId);
+      await kv.deleteVerification(botId, chatId, userId);
+      return { ok: false, error: sentMsg.description || 'Failed to send verification message' };
     }
 
-    await kv.createVerification(botId, chatId, userId, secret, messageId);
+    await kv.updateVerificationMessage(botId, chatId, userId, sentMsg.result.message_id);
 
     return { ok: true };
   } catch (err) {
     console.error('Error in handleChatMember:', err.message);
+    await tg.unrestrictUser(bot.token, chatId, userId);
+    await kv.deleteVerification(botId, chatId, userId);
     return { ok: false, error: err.message };
   }
 }
@@ -150,7 +153,6 @@ async function handleCallbackQuery(callbackQuery, bot, botId, kv, workerUrl) {
     var record = await kv.getVerification(botId, chatId, targetUserId);
     if (!record) {
       await tg.answerCallbackQuery(bot.token, callbackId, '验证已过期！', true);
-      await tg.kickUser(bot.token, chatId, targetUserId);
       if (message && message.message_id) {
         await tg.deleteMessage(bot.token, chatId, message.message_id);
       }

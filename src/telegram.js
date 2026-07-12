@@ -44,18 +44,20 @@ export async function restrictUser(botToken, chatId, userId) {
  * 解除禁言
  */
 export async function unrestrictUser(botToken, chatId, userId) {
+  var chatResult = await callTelegramAPI(botToken, 'getChat', { chat_id: chatId });
+  var defaultPermissions = chatResult.ok && chatResult.result && chatResult.result.permissions;
   return callTelegramAPI(botToken, 'restrictChatMember', {
     chat_id: chatId,
     user_id: userId,
-    permissions: {
+    permissions: defaultPermissions || {
       can_send_messages: true,
       can_send_media_messages: true,
       can_send_polls: true,
       can_send_other_messages: true,
       can_add_web_page_previews: true,
-      can_change_info: true,
-      can_invite_users: true,
-      can_pin_messages: true,
+      can_change_info: false,
+      can_invite_users: false,
+      can_pin_messages: false,
     },
   });
 }
@@ -71,11 +73,12 @@ export async function kickUser(botToken, chatId, userId) {
   });
   // 再解封（让用户能重新申请加入）
   if (banResult.ok) {
-    await callTelegramAPI(botToken, 'unbanChatMember', {
+    var unbanResult = await callTelegramAPI(botToken, 'unbanChatMember', {
       chat_id: chatId,
       user_id: userId,
       only_if_banned: true,
     });
+    if (!unbanResult.ok) return unbanResult;
   }
   return banResult;
 }

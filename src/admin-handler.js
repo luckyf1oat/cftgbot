@@ -774,6 +774,9 @@ export async function handleAdminRequest(request, kv, url) {
 
 async function handleSetupAPI(request, kv) {
   try {
+    if (await kv.hasAdminPassword()) {
+      return jsonResponse({ error: '管理员密码已设置，请直接登录' }, 409);
+    }
     const { password } = await request.json();
     if (!password) {
       return jsonResponse({ error: '密码不能为空' }, 400);
@@ -920,7 +923,6 @@ async function handleDeleteBot(request, kv, botId) {
     }
 
     await kv.deleteBot(botId);
-    await kv.decrementBotCount();
     return jsonResponse({ success: true });
   } catch (e) {
     return jsonResponse({ error: e.message }, 500);
